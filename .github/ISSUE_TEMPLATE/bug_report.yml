@@ -1,0 +1,61 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ['bug']
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Paste this URL: ...
+        2. Choose MP3 at 320
+        3. Press Extract
+    validations:
+      required: true
+
+  - type: input
+    id: url-shape
+    attributes:
+      label: URL shape
+      description: >
+        The form of the link, not necessarily the link itself — watch, youtu.be,
+        shorts, music, embed. Say if the video is private, age-restricted or
+        region-locked.
+    validations:
+      required: false
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Error text or server output
+      description: What the UI showed, and anything the API process printed.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: 'Output of: node --version && yt-dlp --version && ffmpeg -version | head -1'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: true

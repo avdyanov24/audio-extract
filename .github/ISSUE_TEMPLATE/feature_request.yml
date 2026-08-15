@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a capability or an improvement
+labels: ['feature']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is awkward or missing today. Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: What should happen instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend / UI
+        - Backend / API
+        - Extraction pipeline
+        - Tooling / CI
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: design-impact
+    attributes:
+      label: Design system impact
+      description: >
+        If this adds UI, note how it fits the existing rules — accent budget,
+        single border colour, monospace numbers, no motion on hover.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
