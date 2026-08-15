@@ -106,3 +106,16 @@ export async function discard(id) {
 }
 
 export const isExpired = (job) => Boolean(job.expiresAt && Date.now() > job.expiresAt);
+
+/** Live counts the capacity guards need before admitting new work. */
+export function stats() {
+  let running = 0;
+  let retainedBytes = 0;
+
+  for (const job of jobs.values()) {
+    if (job.state === 'queued' || job.state === 'running') running += 1;
+    if (job.file?.size) retainedBytes += job.file.size;
+  }
+
+  return { running, retainedBytes };
+}

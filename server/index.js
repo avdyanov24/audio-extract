@@ -19,7 +19,18 @@ import {
   discard,
   isExpired,
   ttlMinutes,
+  stats,
 } from './lib/jobs.js';
+import {
+  requireAuth,
+  handleAuth,
+  authRequired,
+  rateLimit,
+  sweepRateLimit,
+  checkDuration,
+  checkCapacity,
+  limits,
+} from './lib/guards.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,11 +66,23 @@ async function cachedInfo(parsed) {
   return info;
 }
 
+// Unauthenticated on purpose, and deliberately thin when protected: the client
+// needs to know whether to show the token gate before it has a token.
 app.get('/api/health', async (_req, res) => {
-  res.json({ ok: true, deps: await checkDependencies(), ttlMinutes: ttlMinutes() });
+  if (authRequired()) return res.json({ ok: true, authRequired: true });
+
+  res.json({
+    ok: true,
+    authRequired: false,
+    deps: await checkDependencies(),
+    ttlMinutes: ttlMinutes(),
+    limits: limits(),
+  });
 });
 
-app.post('/api/info', async (req, res) => {
+app.post('/api/auth', handleAuth);
+
+app.post('/api/info', rateLimit, requireAuth, async (req, res) => {
   const parsed = parseYouTubeUrl(req.body?.url);
   if (!parsed) {
     return badRequest(
@@ -77,7 +100,7 @@ app.post('/api/info', async (req, res) => {
   }
 });
 
-app.post('/api/extract', async (req, res) => {
+app.post('/api/extract', rateLimit, requireAuth, async (req, res) => {
   const parsed = parseYouTubeUrl(req.body?.url);
   if (!parsed) {
     return badRequest(res, 'invalid_url', 'Not a YouTube URL', 'Paste a link to a single YouTube video.');
@@ -96,12 +119,20 @@ app.post('/api/extract', async (req, res) => {
     }
   }
 
+  // Capacity is checked before the metadata round trip so a busy instance
+  // rejects immediately rather than after a yt-dlp call it will not use.
+  const capacity = checkCapacity(stats());
+  if (capacity) return res.status(429).json({ error: capacity });
+
   let info;
   try {
     info = await cachedInfo(parsed);
   } catch (err) {
     return res.status(502).json({ error: err });
   }
+
+  const tooLong = checkDuration(info.duration);
+  if (tooLong) return res.status(413).json({ error: tooLong });
 
   const job = createJob({
     url: parsed.url,
@@ -173,7 +204,7 @@ async function runJob(job) {
   }
 }
 
-app.get('/api/progress/:id', (req, res) => {
+app.get('/api/progress/:id', requireAuth, (req, res) => {
   const job = getJob(req.params.id);
   if (!job) {
     return res.status(404).json({ error: { code: 'no_job', title: 'Unknown job', detail: null, hint: null } });
@@ -218,7 +249,7 @@ app.get('/api/progress/:id', (req, res) => {
   });
 });
 
-app.get('/api/file/:id', (req, res) => {
+app.get('/api/file/:id', requireAuth, (req, res) => {
   const job = getJob(req.params.id);
   if (!job || !job.file) {
     return res.status(404).json({ error: { code: 'no_file', title: 'File not found', detail: null, hint: null } });
@@ -246,13 +277,34 @@ if (existsSync(DIST_DIR)) {
   });
 }
 
+/**
+ * Hosted platforms expose secrets as environment variables, but yt-dlp wants a
+ * cookie file on disk. Materialise one when the contents arrive that way.
+ */
+async function materialiseCookies() {
+  const contents = process.env.YTDLP_COOKIES_CONTENT;
+  if (!contents || process.env.YTDLP_COOKIES) return;
+
+  const target = path.join(os.tmpdir(), 'audio-extract-cookies.txt');
+  await fs.writeFile(target, contents, { mode: 0o600 });
+  process.env.YTDLP_COOKIES = target;
+  process.stdout.write('  cookies            loaded from environment\n');
+}
+
 async function main() {
   await requireDependencies();
+  await materialiseCookies();
   await fs.rm(TEMP_ROOT, { recursive: true, force: true }).catch(() => {});
   await fs.mkdir(TEMP_ROOT, { recursive: true });
 
+  const sweep = setInterval(sweepRateLimit, 60_000);
+  sweep.unref?.();
+
   const server = app.listen(PORT, HOST, () => {
+    const { maxConcurrent, maxDurationMinutes, maxDiskMb } = limits();
     process.stdout.write(`\n  audio-extract api  http://${HOST}:${PORT}\n`);
+    process.stdout.write(`  auth               ${authRequired() ? 'token required' : 'open (local mode)'}\n`);
+    process.stdout.write(`  limits             ${maxConcurrent} concurrent, ${maxDurationMinutes} min max, ${maxDiskMb} MB budget\n`);
     process.stdout.write(`  files kept for     ${ttlMinutes()} min\n\n`);
   });
 
