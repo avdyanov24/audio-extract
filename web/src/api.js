@@ -40,6 +40,9 @@ async function post(path, body) {
   return data;
 }
 
+/** Exchanges the shared token for the cookie the SSE stream also reads. */
+export const authenticate = (token) => post('/api/auth', { token });
+
 export const fetchInfo = (url) => post('/api/info', { url });
 
 export const startExtract = (payload) => post('/api/extract', payload);

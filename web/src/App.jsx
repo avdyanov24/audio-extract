@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import AuthGate from './components/AuthGate.jsx';
 import UrlField from './components/UrlField.jsx';
 import MetaCard from './components/MetaCard.jsx';
 import Segmented from './components/Segmented.jsx';
@@ -22,8 +23,20 @@ export default function App() {
   const [bitrate, setBitrate] = useState(192);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
+  const [locked, setLocked] = useState(false);
 
   const stopRef = useRef(null);
+
+  // The gate appears only once a request has actually been refused, so an
+  // instance with no token configured — or a returning client whose cookie is
+  // still valid — never sees it.
+  function handle(err) {
+    if (err?.code === 'unauthorized') {
+      setLocked(true);
+      return true;
+    }
+    return false;
+  }
 
   useEffect(() => () => stopRef.current?.(), []);
 
@@ -45,8 +58,8 @@ export default function App() {
       setInfo(data);
       setPhase('ready');
     } catch (err) {
-      setError(err);
       setPhase('idle');
+      if (!handle(err)) setError(err);
     }
   }
 
@@ -70,13 +83,13 @@ export default function App() {
           setPhase('done');
         },
         onError: (err) => {
-          setError(err);
           setPhase('ready');
+          if (!handle(err)) setError(err);
         },
       });
     } catch (err) {
-      setError(err);
       setPhase('ready');
+      if (!handle(err)) setError(err);
     }
   }
 
@@ -94,6 +107,14 @@ export default function App() {
 
   const status =
     phase === 'fetching' ? 'Fetching' : phase === 'extracting' ? 'Working' : 'Return';
+
+  if (locked) {
+    return (
+      <main className="shell">
+        <AuthGate onUnlock={() => setLocked(false)} />
+      </main>
+    );
+  }
 
   return (
     <main className="shell stack">
