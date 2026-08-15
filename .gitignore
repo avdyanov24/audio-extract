@@ -31,7 +31,8 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
-# Editor
+# Editor / local tooling
+.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea/
