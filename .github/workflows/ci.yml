@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # --if-present so CI stays green until these scripts exist, and starts
+      # enforcing them the moment they are added.
+      - name: Lint
+        run: npm run lint --if-present --workspaces --include-workspace-root
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test --if-present --workspaces --include-workspace-root
