@@ -83,6 +83,14 @@ export function finish(job, file) {
   timer.unref?.();
 }
 
+/**
+ * Failures hold nothing on disk, so the only thing to reclaim is the registry
+ * entry. The grace period is short and deliberately not the file TTL: it exists
+ * so an SSE client still attached receives the terminal event, not so anything
+ * stays retrievable afterwards.
+ */
+const FAILED_GRACE_MS = 30_000;
+
 export function fail(job, error) {
   update(job, {
     state: 'error',
@@ -96,7 +104,15 @@ export function fail(job, error) {
       hint: error?.hint ?? null,
     },
   });
+
+  const timer = setTimeout(() => {
+    void discard(job.id);
+  }, FAILED_GRACE_MS);
+  timer.unref?.();
 }
+
+/** Test seam: the grace period is not worth waiting out in a unit test. */
+export const failedGraceMs = () => FAILED_GRACE_MS;
 
 export async function discard(id) {
   const job = jobs.get(id);
