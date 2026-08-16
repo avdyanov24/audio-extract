@@ -34,8 +34,14 @@ export function count(n) {
   return String(n);
 }
 
-/** yt-dlp gives upload_date as YYYYMMDD. */
+/**
+ * yt-dlp gives upload_date as YYYYMMDD. Coerced once and reused: validating the
+ * string form and then slicing the original meant a numeric input passed the
+ * check and threw on .slice().
+ */
 export function uploadDate(value) {
-  if (!/^\d{8}$/.test(String(value ?? ''))) return null;
-  return `${value.slice(0, 4)}.${value.slice(4, 6)}.${value.slice(6, 8)}`;
+  const text = String(value ?? '');
+  if (!/^\d{8}$/.test(text)) return null;
+
+  return `${text.slice(0, 4)}.${text.slice(4, 6)}.${text.slice(6, 8)}`;
 }
