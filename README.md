@@ -22,8 +22,10 @@ sidesteps that entirely.
 
 ## Screenshot
 
-<!-- TODO: replace with a capture of the metadata + format state -->
-_Placeholder — screenshot pending._
+![Metadata card and format selection, with the URL field above and the Extract action below](docs/screenshot.png)
+
+The interface at rest is the URL field alone. Everything above appears once a
+link resolves.
 
 ## Features
 
