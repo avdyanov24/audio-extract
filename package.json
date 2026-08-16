@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "concurrently -n server,web -c gray,yellow \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
     "build": "npm --prefix web run build",
-    "start": "npm --prefix server run start"
+    "start": "npm --prefix server run start",
+    "test": "node --test"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
