@@ -14,6 +14,9 @@ const PATH_FORMS = /^\/(?:shorts|embed|live|v)\/([^/?#]+)/;
 // Reserved on Windows, and confusing everywhere else.
 const RESERVED_CHARS = /[/\\?%*:|"<>]/g;
 
+// Windows refuses these as filenames regardless of extension.
+const RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
 /**
  * Drop control characters, which are illegal in filenames on every platform we
  * target. Done by code point rather than a regex literal so the source stays
@@ -74,5 +77,11 @@ export function safeFilename(title, ext) {
     .slice(0, 120)
     .replace(/[. ]+$/, '');
 
-  return `${base || 'audio'}.${ext}`;
+  if (!base) return `audio.${ext}`;
+
+  // Checked after sanitising, because stripping characters can turn a title
+  // that was fine into a reserved name.
+  if (RESERVED_NAMES.test(base)) return `${base}_.${ext}`;
+
+  return `${base}.${ext}`;
 }
