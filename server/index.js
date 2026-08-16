@@ -48,7 +48,26 @@ const LOSSLESS = new Set(['wav', 'flac']);
 const DOWNLOAD_SHARE = 0.7;
 
 const INFO_TTL_MS = 10 * 60 * 1000;
+const INFO_MAX_ENTRIES = 100;
 const infoCache = new Map();
+
+/**
+ * Checking age on read is not enough on its own: an entry nobody asks for again
+ * is never read, so it is never noticed as expired. Sweep on a timer, and keep
+ * a hard cap as a backstop. Map iterates in insertion order, so the oldest
+ * surviving entries are the first to go.
+ */
+function sweepInfoCache() {
+  const now = Date.now();
+
+  for (const [id, entry] of infoCache) {
+    if (now - entry.at >= INFO_TTL_MS) infoCache.delete(id);
+  }
+
+  while (infoCache.size > INFO_MAX_ENTRIES) {
+    infoCache.delete(infoCache.keys().next().value);
+  }
+}
 
 const app = express();
 app.use(express.json({ limit: '16kb' }));
@@ -62,7 +81,13 @@ async function cachedInfo(parsed) {
   if (hit && Date.now() - hit.at < INFO_TTL_MS) return hit.info;
 
   const info = summarise(await fetchInfo(parsed.url));
+
+  // Delete before set so a refreshed entry moves to the back of the insertion
+  // order and is not mistaken for the oldest when the cap trims.
+  infoCache.delete(parsed.id);
   infoCache.set(parsed.id, { at: Date.now(), info });
+  sweepInfoCache();
+
   return info;
 }
 
@@ -297,7 +322,10 @@ async function main() {
   await fs.rm(TEMP_ROOT, { recursive: true, force: true }).catch(() => {});
   await fs.mkdir(TEMP_ROOT, { recursive: true });
 
-  const sweep = setInterval(sweepRateLimit, 60_000);
+  const sweep = setInterval(() => {
+    sweepRateLimit();
+    sweepInfoCache();
+  }, 60_000);
   sweep.unref?.();
 
   const server = app.listen(PORT, HOST, () => {
