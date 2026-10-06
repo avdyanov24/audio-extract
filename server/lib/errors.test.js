@@ -86,3 +86,21 @@ test('spawnError distinguishes a missing binary from other spawn failures', () =
   const other = spawnError(new Error('EACCES'), 'ffmpeg');
   assert.equal(other.code, 'spawn_failed');
 });
+
+test('a 403 on the download step is reported as a stale yt-dlp', () => {
+  // Regression: this reached users as a bare "Extraction failed". Metadata
+  // resolves, then the media URL is refused because the signature yt-dlp
+  // computed is stale — which is the single most common way staleness shows up.
+  const result = classifyYtDlpError(
+    'ERROR: unable to download video data: HTTP Error 403: Forbidden',
+    1
+  );
+
+  assert.equal(result.code, 'ytdlp_outdated');
+  assert.match(result.hint, /yt-dlp/);
+});
+
+test('a 403 does not outrank a more specific cause', () => {
+  const stderr = 'ERROR: [youtube] abc: Private video\nHTTP Error 403: Forbidden';
+  assert.equal(classifyYtDlpError(stderr, 1).code, 'private');
+});

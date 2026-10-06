@@ -81,6 +81,11 @@ const RULES = [
       /unable to parse/i,
       /player response/i,
       /please report this issue/i,
+      // A 403 on the download step is the most common way staleness shows up:
+      // metadata resolves fine, then the media URL is rejected because the
+      // signature yt-dlp computed is no longer the one YouTube expects.
+      /http error 403/i,
+      /unable to download video data/i,
     ],
     title: 'yt-dlp is out of date',
     detail: 'YouTube changed something yt-dlp does not understand yet. This breaks every video until it is updated.',
